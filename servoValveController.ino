@@ -23,6 +23,8 @@ Adafruit_PWMServoDriver pwm = Adafruit_PWMServoDriver();
 #define SERVOMAX 2300 // this is the 'maximum' pulse length in us
 #define MAXBYTESREADPERTICK 100
 
+uint32_t servoMinPWMs[] = {480, 0};
+uint32_t servoMaxPWMs[] = {2300, 700};
 // our servo # counter
 uint8_t servonums[] = {0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15};
 double servoAngle[16]; //Current desired servo angles in degrees
@@ -96,7 +98,8 @@ void handleInput(){
                         //Sub list of commands for servo (buffer)
                         for (int servoNumI=0;servoNumI<16;servoNumI++){ //Go through each servo num and search for commands
                           for (int k=0;k<cmdLen;k+=3){ //Go through all commands received and see if they match this servo
-                            if ((int) (cmdBuffer[k] & 0xFF00) >> 4 == servonums[servoNumI]){ //If servo num of this command matches that we are searching for cmds for
+                            int servoNumOfCmd = (int) (cmdBuffer[k] & 0xF0) >> 4;
+                            if ((int) (cmdBuffer[k] & 0xF0) >> 4 == servonums[servoNumI]){ //If servo num of this command matches that we are searching for cmds for
                               //Write this command to the sub list of commands for this servo
                               subCmdBuffer[subCmdBufferIndex] = cmdBuffer[k];
                               subCmdBuffer[subCmdBufferIndex+1] = cmdBuffer[k+1];
@@ -143,7 +146,7 @@ void doCommandHandling(){
       reloop = false;
       int cmdI = cmdIndex[servonumI];   
       if (cmdI < cmdLength[servonumI]){
-        byte cmd = cmds[cmdI] & 0xFF;
+        byte cmd = cmds[cmdI] & 0x0F;
         if (cmd == 0x00){ //Command to move servo to desired angle
            uint32_t argRaw = (((uint32_t) cmds[cmdI+1]) << 8) + ((uint32_t) cmds[cmdI+2]); //Decode to uint
            servoAngle[servonumI] = (((double)argRaw*180) / 65535.0); //Set the servo angle
@@ -186,7 +189,7 @@ void doCommandHandling(){
 void loop() {
   handleInput();
   doCommandHandling();
-  for (int servonumI=0;servonumI<sizeof(servonums);servonumI++){
-    setServoAngle(servonums[servonumI],servoAngle[servonumI],SERVOMIN,SERVOMAX,180);
+  for (int servonumI=0;servonumI<16;servonumI++){
+    setServoAngle(servonums[servonumI],servoAngle[servonumI],servoMinPWMs[servonums[servonumI]],servoMaxPWMs[servonums[servonumI]],180);
   }
 }
