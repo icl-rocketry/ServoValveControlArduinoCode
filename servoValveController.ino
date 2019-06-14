@@ -33,7 +33,7 @@ int cmdIndex[16]; //Indexes of command currently being executed by each servo
 int cmdLength[16]; //Lengths of commands bytes currently available to each servo
 
 void setup() {
-  Serial.begin(57600);
+  Serial.begin(9600);
 
   pwm.begin();
   
@@ -84,10 +84,19 @@ void handleInput(){
                     inString += c; //add to the buffer
                     if (c == '\n') {            // \n means "end of message"
                         //cmdBuffer = new byte[stringToLong(inString)]; //Message is length in bytes of command list, create byte array buffer for storing the commands
-                        cmdLen = inString.toInt();
-                        inString = "";                // reset buffer
-                        i=0;
-                        readingCmd = true;
+                        String isReadyStr = "isReady\n";
+                        if(inString == isReadyStr){
+                          inString = "";                // reset buffer
+                          i=0;
+                          Serial.println("Ready");
+                          readingCmd = false;
+                        }
+                        else {
+                          cmdLen = inString.toInt();
+                          inString = "";                // reset buffer
+                          i=0;
+                          readingCmd = cmdLen > 0;
+                        }
                     }
                 }
                 else { //Read set of commands
