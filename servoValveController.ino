@@ -19,8 +19,8 @@ Adafruit_PWMServoDriver pwm = Adafruit_PWMServoDriver();
 // for max range. You'll have to tweak them as necessary to match the servos you
 // have!
 //Calibrated for the FS5115M we have
-uint32_t servoMinPWMs[] = {480, 0};
-uint32_t servoMaxPWMs[] = {2300, 700};
+uint32_t servoMinPWMs[] = {480, 480};
+uint32_t servoMaxPWMs[] = {2300, 2300};
 // our servo # counter
 uint8_t servonums[] = {0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15};
 double servoAngle[16]; //Current desired servo angles in degrees
