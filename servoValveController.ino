@@ -202,6 +202,15 @@ void doCommandHandling(){
             reloop = true; //Execute next command in same tick
           }
         }
+        else if(cmd == 0x05) { //Command for servo to loop it's command list
+          String strMessage = "mServo ";
+          strMessage += servonumI;
+          strMessage +=" restarting command list";
+          Serial.println(strMessage);
+          Serial.flush();
+          cmdIndex[servonumI] = 0; //Progress to next command
+          reloop = true; //Execute next command in same tick
+        }
       }
     }
   }
