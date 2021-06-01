@@ -12,17 +12,13 @@ Adafruit_PWMServoDriver pwm = Adafruit_PWMServoDriver();
 // you can also call it with a different address and I2C interface
 //Adafruit_PWMServoDriver pwm = Adafruit_PWMServoDriver(&Wire, 0x40);
 
+#define MAXBYTESREADPERTICK 100
+
 // Depending on your servo make, the pulse width min and max may vary, you 
 // want these to be as small/large as possible without hitting the hard stop
 // for max range. You'll have to tweak them as necessary to match the servos you
 // have!
 //Calibrated for the FS5115M we have
-//#define SERVOMIN 490 // this is the 'minimum' pulse length in us
-#define SERVOMIN 480 // this is the 'minimum' pulse length in us
-//#define SERVOMAX 2270 // this is the 'maximum' pulse length in us
-#define SERVOMAX 2300 // this is the 'maximum' pulse length in us
-#define MAXBYTESREADPERTICK 100
-
 uint32_t servoMinPWMs[] = {480, 0};
 uint32_t servoMaxPWMs[] = {2300, 700};
 // our servo # counter
@@ -155,9 +151,10 @@ void doCommandHandling(){
       reloop = false;
       int cmdI = cmdIndex[servonumI];   
       if (cmdI < cmdLength[servonumI]){
-        byte cmd = cmds[cmdI] & 0x0F;
+        byte cmd = cmds[cmdI] & 0x0F; //Extract the last 4 bits of the command which denote what to do (First 4 bits were used to address which servo)
         if (cmd == 0x00){ //Command to move servo to desired angle
-           uint32_t argRaw = (((uint32_t) cmds[cmdI+1]) << 8) + ((uint32_t) cmds[cmdI+2]); //Decode to uint
+           uint32_t argRaw = (((uint32_t) cmds[cmdI+1]) << 8) + ((uint32_t) cmds[cmdI+2]); //Decode the two bytes following the command to a uint.
+           //Arg raw is the angle
            servoAngle[servonumI] = (((double)argRaw*180) / 65535.0); //Set the servo angle
            //Send the updated servo angle to whoever is listening on COM in the format "s<Servonum>a<angle>"
            String strAngle = "s";
@@ -166,7 +163,7 @@ void doCommandHandling(){
            strAngle += servoAngle[servonumI];
            Serial.println(strAngle);
            Serial.flush();
-           cmdIndex[servonumI] = cmdI+3;
+           cmdIndex[servonumI] = cmdI+3; //Progress to next command
         } else if(cmd == 0x01){ //Command for servo to wait given number of millis
           //argRaw is time in millis to wait
           uint32_t argRaw = (((uint32_t) cmds[cmdI+1]) << 8) + ((uint32_t) cmds[cmdI+2]); //Decode to uint
@@ -175,7 +172,7 @@ void doCommandHandling(){
           }
           if (millis() > waitTimeStart[servonumI] + argRaw){
             waitTimeStart[servonumI] = -1;
-            cmdIndex[servonumI] = cmdI+3;
+            cmdIndex[servonumI] = cmdI+3; //Progress to next command
             reloop = true; //Execute next command in same tick
           }
         } else if(cmd == 0x02){ //Command for servo to wait given number of seconds
@@ -186,7 +183,22 @@ void doCommandHandling(){
           }
           if (millis() > waitTimeStart[servonumI] + argRaw*1000){
             waitTimeStart[servonumI] = -1;
-            cmdIndex[servonumI] = cmdI+3;
+            cmdIndex[servonumI] = cmdI+3; //Progress to next command
+            reloop = true; //Execute next command in same tick
+          }
+        }
+        else if(cmd == 0x04){ //Command for servo to wait for pin to go high / go low
+          uint32_t pinNumber = (((uint32_t) (cmds[cmdI+1]) & 0x7F) << 8) + ((uint32_t) cmds[cmdI+2]); //Decode to uint (last 7 bits of first byte and all 8 bits of second byte)
+          byte triggerOnHighOrLow = cmds[cmdI+1] && 0x80; //Left most bit of first argument byte is whether to trigger on high signal (1) or low signal (0) 
+          pinMode(pinNumber, INPUT);
+          int val = digitalRead(pinNumber);
+          if ((triggerOnHighOrLow > 0 && val == HIGH) || (triggerOnHighOrLow < 1) && val == LOW){ //Trigger commands
+            String strMessage = "mPin ";
+            strMessage += pinNumber;
+            strMessage +=" condition triggered";
+            Serial.println(strMessage);
+            Serial.flush();
+            cmdIndex[servonumI] = cmdI+3; //Progress to next command
             reloop = true; //Execute next command in same tick
           }
         }
