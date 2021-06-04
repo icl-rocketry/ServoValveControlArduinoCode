@@ -2,8 +2,11 @@
 
  ****************************************************/
 
+//Made for ServoValveController V1.2
+
 #include <Wire.h>
 #include <Adafruit_PWMServoDriver.h>
+#include <SoftwareSerial.h>
 
 // called this way, it uses the default address 0x40
 Adafruit_PWMServoDriver pwm = Adafruit_PWMServoDriver();
@@ -13,34 +16,43 @@ Adafruit_PWMServoDriver pwm = Adafruit_PWMServoDriver();
 //Adafruit_PWMServoDriver pwm = Adafruit_PWMServoDriver(&Wire, 0x40);
 
 #define MAXBYTESREADPERTICK 100
+//Which Serial to use for communication. "Serial" for normal USB/etc serial, or "mySerial" for SoftwareSerial
+#define SERIALOUT Serial
+
+//Maximum angle used in encoded scheme for communication to commanding program. Must match or angles commanded will be wrong. (Angle is sent as an integer number of 1/65535 ths of this number)
+#define MAX_ENCODED_ANGLE 360
 
 // Depending on your servo make, the pulse width min and max may vary, you 
 // want these to be as small/large as possible without hitting the hard stop
 // for max range. You'll have to tweak them as necessary to match the servos you
 // have!
 //Calibrated for the FS5115M we have
-uint32_t servoMinPWMs[] = {480, 480};
-uint32_t servoMaxPWMs[] = {2300, 2300};
+uint32_t servoMinPWMs[] = {480, 480}; //PWMs for servo 0 degrees position
+uint32_t servoMaxPWMs[] = {2300, 2300}; //PWMs for servo max position
+double servoMaxAngles[] = {180, 180}; //Servo angle for max PWM position
 // our servo # counter
 uint8_t servonums[] = {0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15};
 double servoAngle[16]; //Current desired servo angles in degrees
 byte *commands[16]; //Array of commands arrays pointers, index is the servo num
 int cmdIndex[16]; //Indexes of command currently being executed by each servo
 int cmdLength[16]; //Lengths of commands bytes currently available to each servo
+SoftwareSerial mySerial(0, 1); // RX, TX
 
 void setup() {
   Serial.begin(9600);
+  mySerial.begin(9600);
 
   pwm.begin();
   
   pwm.setPWMFreq(60);  // Analog servos run at ~60 Hz updates
 
   //delay(10);
-  Serial.println("Ready");
+  //Serial.println("Ready");
+  SERIALOUT.println("Ready");
 }
 
 void setServoAngle(uint8_t n, double angle, unsigned int minPulseLength, unsigned int maxPulseLength, double angleRange){
-  double pulselen = map(angle, 0, angleRange, (double)minPulseLength, (double)maxPulseLength);
+  double pulselen = constrain(map(angle, 0, angleRange, (double)minPulseLength, (double)maxPulseLength), minPulseLength, maxPulseLength);
   //Serial.println(pulselen);
   setServoPulse(n,pulselen);
 }
@@ -70,13 +82,13 @@ void handleInput(){
   readThisTick = 0;
   byte cmdBuffer[300]; //Max 100 cmds per command list
   byte subCmdBuffer[300]; //Max 100 cmds per servo per command list
-  while (Serial.available() > 0 && readThisTick < MAXBYTESREADPERTICK) {
+  while (SERIALOUT.available() > 0 && readThisTick < MAXBYTESREADPERTICK) {
                 readThisTick += 1;
                 static String inString = "";    // string to hold input
                 static size_t readBufferPos;              // position of next write to buffer
                 if(!readingCmd){ //Will be sent the length to read followed by \n
                     // read the incoming byte:
-                    char c = char(Serial.read()); //Read ASCII char from serial
+                    char c = char(SERIALOUT.read()); //Read ASCII char from serial
                     inString += c; //add to the buffer
                     if (c == '\n') {            // \n means "end of message"
                         //cmdBuffer = new byte[stringToLong(inString)]; //Message is length in bytes of command list, create byte array buffer for storing the commands
@@ -84,7 +96,7 @@ void handleInput(){
                         if(inString == isReadyStr){
                           inString = "";                // reset buffer
                           i=0;
-                          Serial.println("Ready");
+                          SERIALOUT.println("Ready");
                           readingCmd = false;
                         }
                         else {
@@ -96,7 +108,7 @@ void handleInput(){
                     }
                 }
                 else { //Read set of commands
-                    cmdBuffer[i] = Serial.read();
+                    cmdBuffer[i] = SERIALOUT.read();
                     i+=1;
                     if (i == cmdLen){ //Have finished reading the command list, now to write it so it gets executed
                         readingCmd = false;
@@ -121,8 +133,8 @@ void handleInput(){
                             //Serial.flush();
                             byte *cmdsArr = new byte[subCmdBufferIndex](); //subCmdBufferIndex is number of commands this servo received
                             if(cmdsArr==NULL){
-                              Serial.println("FAILED to allocate memory for storing commands!");
-                              Serial.flush();
+                              SERIALOUT.println("FAILED to allocate memory for storing commands!");
+                              SERIALOUT.flush();
                             }
                             for (int z=0;z<subCmdBufferIndex;z++){
                               cmdsArr[z] = subCmdBuffer[z]; //Copy from sub cmd buffer into the commands array for this servo
@@ -155,14 +167,14 @@ void doCommandHandling(){
         if (cmd == 0x00){ //Command to move servo to desired angle
            uint32_t argRaw = (((uint32_t) cmds[cmdI+1]) << 8) + ((uint32_t) cmds[cmdI+2]); //Decode the two bytes following the command to a uint.
            //Arg raw is the angle
-           servoAngle[servonumI] = (((double)argRaw*180) / 65535.0); //Set the servo angle
+           servoAngle[servonumI] = (((double)argRaw*MAX_ENCODED_ANGLE) / 65535.0); //Set the servo angle
            //Send the updated servo angle to whoever is listening on COM in the format "s<Servonum>a<angle>"
            String strAngle = "s";
            strAngle +=servonumI;
            strAngle +="a";
-           strAngle += servoAngle[servonumI];
-           Serial.println(strAngle);
-           Serial.flush();
+           strAngle += constrain(servoAngle[servonumI],0,servoMaxAngles[servonumI]);
+           SERIALOUT.println(strAngle);
+           SERIALOUT.flush();
            cmdIndex[servonumI] = cmdI+3; //Progress to next command
         } else if(cmd == 0x01){ //Command for servo to wait given number of millis
           //argRaw is time in millis to wait
@@ -196,8 +208,8 @@ void doCommandHandling(){
             String strMessage = "mPin ";
             strMessage += pinNumber;
             strMessage +=" condition triggered";
-            Serial.println(strMessage);
-            Serial.flush();
+            SERIALOUT.println(strMessage);
+            SERIALOUT.flush();
             cmdIndex[servonumI] = cmdI+3; //Progress to next command
             reloop = true; //Execute next command in same tick
           }
@@ -206,8 +218,8 @@ void doCommandHandling(){
           String strMessage = "mServo ";
           strMessage += servonumI;
           strMessage +=" restarting command list";
-          Serial.println(strMessage);
-          Serial.flush();
+          SERIALOUT.println(strMessage);
+          SERIALOUT.flush();
           cmdIndex[servonumI] = 0; //Progress to next command
           reloop = true; //Execute next command in same tick
         }
@@ -220,6 +232,6 @@ void loop() {
   handleInput();
   doCommandHandling();
   for (int servonumI=0;servonumI<16;servonumI++){
-    setServoAngle(servonums[servonumI],servoAngle[servonumI],servoMinPWMs[servonums[servonumI]],servoMaxPWMs[servonums[servonumI]],180);
+    setServoAngle(servonums[servonumI],constrain(servoAngle[servonumI],0,servoMaxAngles[servonumI]),servoMinPWMs[servonums[servonumI]],servoMaxPWMs[servonums[servonumI]],servoMaxAngles[servonumI]);
   }
 }
