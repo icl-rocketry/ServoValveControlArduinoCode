@@ -17,7 +17,7 @@ Adafruit_PWMServoDriver pwm = Adafruit_PWMServoDriver();
 
 #define MAXBYTESREADPERTICK 100
 //Which Serial to use for communication. "Serial" for normal USB/etc serial, or "mySerial" for SoftwareSerial
-#define SERIALOUT Serial
+#define SERIALOUT mySerial
 
 //Maximum angle used in encoded scheme for communication to commanding program. Must match or angles commanded will be wrong. (Angle is sent as an integer number of 1/65535 ths of this number)
 #define MAX_ENCODED_ANGLE 360
@@ -36,7 +36,7 @@ double servoAngle[16]; //Current desired servo angles in degrees
 byte *commands[16]; //Array of commands arrays pointers, index is the servo num
 int cmdIndex[16]; //Indexes of command currently being executed by each servo
 int cmdLength[16]; //Lengths of commands bytes currently available to each servo
-SoftwareSerial mySerial(0, 1); // RX, TX
+SoftwareSerial mySerial(10, 11); // RX, TX
 
 void setup() {
   Serial.begin(9600);
