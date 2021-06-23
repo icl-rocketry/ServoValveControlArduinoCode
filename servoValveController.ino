@@ -2,7 +2,7 @@
 
  ****************************************************/
 
-//Made for ServoValveController V1.2
+//Made for ServoValveController V1.3
 
 #include <Wire.h>
 #include <Adafruit_PWMServoDriver.h>
@@ -174,7 +174,7 @@ void doCommandHandling(){
            strAngle +="a";
            strAngle += constrain(servoAngle[servonumI],0,servoMaxAngles[servonumI]);
            SERIALOUT.println(strAngle);
-           SERIALOUT.flush();
+           //SERIALOUT.flush();
            cmdIndex[servonumI] = cmdI+3; //Progress to next command
         } else if(cmd == 0x01){ //Command for servo to wait given number of millis
           //argRaw is time in millis to wait
@@ -209,7 +209,7 @@ void doCommandHandling(){
             strMessage += pinNumber;
             strMessage +=" condition triggered";
             SERIALOUT.println(strMessage);
-            SERIALOUT.flush();
+            //SERIALOUT.flush();
             cmdIndex[servonumI] = cmdI+3; //Progress to next command
             reloop = true; //Execute next command in same tick
           }
@@ -219,7 +219,7 @@ void doCommandHandling(){
           strMessage += servonumI;
           strMessage +=" restarting command list";
           SERIALOUT.println(strMessage);
-          SERIALOUT.flush();
+          //SERIALOUT.flush();
           cmdIndex[servonumI] = 0; //Progress to next command
           reloop = true; //Execute next command in same tick
         }
