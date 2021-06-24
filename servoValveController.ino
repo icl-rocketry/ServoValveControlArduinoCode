@@ -32,7 +32,7 @@ Adafruit_PWMServoDriver pwm = Adafruit_PWMServoDriver();
 //uint32_t servoMaxPWMs[] = {2300, 2300}; //PWMs for servo max position
 //double servoMaxAngles[] = {180, 180}; //Servo angle for max PWM position
 
-//Calibrated for the 1/4" and 3/8" Ball valve servos we have (servo 0 is 1/4")
+//Calibrated for the 1/4" and 3/8" Ball valve servos we have (Servo 0 is 1/4")
 uint32_t servoMinPWMs[] = {500, 500}; //PWMs for servo 0 degrees position
 uint32_t servoMaxPWMs[] = {2330, 2251}; //PWMs for servo max position
 double servoMaxAngles[] = {220, 214}; //Servo angle for max PWM position
