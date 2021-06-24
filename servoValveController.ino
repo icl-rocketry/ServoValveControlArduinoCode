@@ -18,6 +18,7 @@ Adafruit_PWMServoDriver pwm = Adafruit_PWMServoDriver();
 #define MAXBYTESREADPERTICK 100
 //Which Serial to use for communication. "Serial" for normal USB/etc serial, or "mySerial" for SoftwareSerial
 #define SERIALOUT mySerial
+//#define SERIALOUT Serial
 
 //Maximum angle used in encoded scheme for communication to commanding program. Must match or angles commanded will be wrong. (Angle is sent as an integer number of 1/65535 ths of this number)
 #define MAX_ENCODED_ANGLE 360
@@ -27,9 +28,15 @@ Adafruit_PWMServoDriver pwm = Adafruit_PWMServoDriver();
 // for max range. You'll have to tweak them as necessary to match the servos you
 // have!
 //Calibrated for the FS5115M we have
-uint32_t servoMinPWMs[] = {480, 480}; //PWMs for servo 0 degrees position
-uint32_t servoMaxPWMs[] = {2300, 2300}; //PWMs for servo max position
-double servoMaxAngles[] = {180, 180}; //Servo angle for max PWM position
+//uint32_t servoMinPWMs[] = {480, 480}; //PWMs for servo 0 degrees position
+//uint32_t servoMaxPWMs[] = {2300, 2300}; //PWMs for servo max position
+//double servoMaxAngles[] = {180, 180}; //Servo angle for max PWM position
+
+//Calibrated for the 1/4" and 3/8" Ball valve servos we have (servo 0 is 1/4")
+uint32_t servoMinPWMs[] = {500, 500}; //PWMs for servo 0 degrees position
+uint32_t servoMaxPWMs[] = {2330, 2251}; //PWMs for servo max position
+double servoMaxAngles[] = {220, 214}; //Servo angle for max PWM position
+
 // our servo # counter
 uint8_t servonums[] = {0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15};
 double servoAngle[16]; //Current desired servo angles in degrees
@@ -45,6 +52,9 @@ void setup() {
   pwm.begin();
   
   pwm.setPWMFreq(60);  // Analog servos run at ~60 Hz updates
+
+  //For receiving ignition trigger signal
+  pinMode(7, INPUT);
 
   //delay(10);
   //Serial.println("Ready");
@@ -174,6 +184,10 @@ void doCommandHandling(){
            strAngle +="a";
            strAngle += constrain(servoAngle[servonumI],0,servoMaxAngles[servonumI]);
            SERIALOUT.println(strAngle);
+
+           //Set the servo angle
+           setServoAngle(servonums[servonumI],constrain(servoAngle[servonumI],0,servoMaxAngles[servonumI]),servoMinPWMs[servonums[servonumI]],servoMaxPWMs[servonums[servonumI]],servoMaxAngles[servonumI]);
+           
            //SERIALOUT.flush();
            cmdIndex[servonumI] = cmdI+3; //Progress to next command
         } else if(cmd == 0x01){ //Command for servo to wait given number of millis
@@ -202,7 +216,6 @@ void doCommandHandling(){
         else if(cmd == 0x04){ //Command for servo to wait for pin to go high / go low
           uint32_t pinNumber = (((uint32_t) (cmds[cmdI+1]) & 0x7F) << 8) + ((uint32_t) cmds[cmdI+2]); //Decode to uint (last 7 bits of first byte and all 8 bits of second byte)
           byte triggerOnHighOrLow = cmds[cmdI+1] && 0x80; //Left most bit of first argument byte is whether to trigger on high signal (1) or low signal (0) 
-          pinMode(pinNumber, INPUT);
           int val = digitalRead(pinNumber);
           if ((triggerOnHighOrLow > 0 && val == HIGH) || (triggerOnHighOrLow < 1) && val == LOW){ //Trigger commands
             String strMessage = "mPin ";
@@ -231,7 +244,7 @@ void doCommandHandling(){
 void loop() {
   handleInput();
   doCommandHandling();
-  for (int servonumI=0;servonumI<16;servonumI++){
-    setServoAngle(servonums[servonumI],constrain(servoAngle[servonumI],0,servoMaxAngles[servonumI]),servoMinPWMs[servonums[servonumI]],servoMaxPWMs[servonums[servonumI]],servoMaxAngles[servonumI]);
-  }
+//  for (int servonumI=0;servonumI<16;servonumI++){
+//    setServoAngle(servonums[servonumI],constrain(servoAngle[servonumI],0,servoMaxAngles[servonumI]),servoMinPWMs[servonums[servonumI]],servoMaxPWMs[servonums[servonumI]],servoMaxAngles[servonumI]);
+//  }
 }
